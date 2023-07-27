@@ -39,7 +39,7 @@
       height: 50px;
       margin-top: 15px;
       border: none;
-      box-shadow: 3px 3px 8px #e9d97b
+      box-shadow: 3px 3px 8px #e9d97b;
     }
     .consulta-button:hover {      
       align-items: center;
@@ -56,10 +56,8 @@
       height: 60px;
       margin-top: 15px;
       border: none;
-      box-shadow: 3px 3px 8px #e9d97b
+      box-shadow: 3px 3px 8px #e9d97b;
     }
-   
-
     .form-input {
       box-shadow: 1px 1px 1px #5c4800, 5px 5px 5px #ac901f, 7px 7px 7px #ac901f;
       background-color: #e9d97b;
@@ -102,7 +100,7 @@
   </div>
 
   <script>
-     function formatDate(input) {
+    function formatDate(input) {
       let value = input.value.replace(/\D/g, '').substring(0, 8);
 
       if (value.length > 2) {
@@ -113,32 +111,66 @@
 
       input.value = value;
     }
+
+    // Função para converter uma data no formato "DD/MM/YYYY" para um objeto Date do JavaScript
+    function parseData(dataStr) {
+      if (!dataStr) return null; // Retorna null se a data estiver vazia
+
+      const parts = dataStr.split("/");
+      if (parts.length !== 3) return null; // Retorna null se a data estiver em um formato inválido
+
+      const day = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10);
+      const year = parseInt(parts[2], 10);
+
+      // Verifica se os componentes de data são números válidos
+      if (isNaN(day) || isNaN(month) || isNaN(year)) return null;
+
+      return new Date(year, month - 1, day);
+    }
+
+    // Função para converter um objeto Date do JavaScript para uma data no formato "DD/MM/YYYY"
+    function formatData(data) {
+      const dia = String(data.getDate()).padStart(2, "0");
+      const mes = String(data.getMonth() + 1).padStart(2, "0");
+      const ano = data.getFullYear();
+      return `${dia}/${mes}/${ano}`;
+    }
+
+    // Função para verificar se uma data está dentro de um intervalo
+    function dataEstaDentroDoIntervalo(data, inicioIntervalo, fimIntervalo) {
+      return data >= inicioIntervalo && data <= fimIntervalo;
+    }
+
     async function consultar() {
       const dataEvento = document.getElementById('dataEvento').value;
       const codigoProduto = document.getElementById('codigoProduto').value;
 
       try {
         // Realiza o GET na API usando o Axios
-        const response = await axios.get(`http://localhost:3000/api/database/contratos-antigos`);
+        const response = await axios.get('http://localhost:3000/api/database/contracts-list');
         const result = response.data.result;
-        console.log(response)
-        console.log(result)
 
-        // Verifica se o traje está locado para a data e código informados
-        const trajeLocado = result.find(item => item.dataEvento === dataEvento && item.codigo === codigoProduto);
+        // Verifica se há alguma reserva com o mesmo codigoProduto
+        const trajes = result.filter(item => item.codigo === codigoProduto);
 
-        const resultDiv = document.getElementById('resultDiv');
-        if (trajeLocado) {
-          // Exibe a mensagem de traje locado
-          const dataInicial = new Date(dataEvento);
-          dataInicial.setDate(dataInicial.getDate() - 3);
+        if (trajes.length > 0) {
+          const dataEventoObj = parseData(dataEvento);
+          const dataRetiradaObj = parseData(trajes[0].data_retirada);
+          const dataDevolucaoObj = parseData(trajes[0].data_devolucao);
 
-          const dataFinal = new Date(dataEvento);
-          dataFinal.setDate(dataFinal.getDate() + 3);
-
-          resultDiv.innerHTML = `Traje já está reservado para esta data. Do dia ${dataInicial.toLocaleDateString()} a ${dataFinal.toLocaleDateString()} para o Contrato número: ${trajeLocado.contrato}`;
+          // Verifica se a data do evento está dentro do intervalo da locação
+          if (dataEstaDentroDoIntervalo(dataEventoObj, dataRetiradaObj, dataDevolucaoObj)) {
+            const mensagem = `Traje já está reservado para esta data. Do dia ${formatData(
+              dataRetiradaObj
+            )} a ${formatData(dataDevolucaoObj)} para o Contrato número: ${trajes[0].contrato}`;
+            resultDiv.innerHTML = mensagem;
+          } else {
+            // Exibe a mensagem de traje disponível
+            resultDiv.innerHTML = 'Traje disponível para esta data.';
+          }
         } else {
-          // Exibe a mensagem de traje disponível
+          // Exibe a mensagem de traje disponível quando não houver reserva com o mesmo código
           resultDiv.innerHTML = 'Traje disponível para esta data.';
         }
       } catch (error) {
@@ -146,7 +178,6 @@
         alert('Erro ao consultar a API. Por favor, tente novamente mais tarde.');
       }
     }
-
 
     function limpar() {
       document.getElementById('dataEvento').value = '';
